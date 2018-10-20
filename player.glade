@@ -7,11 +7,11 @@
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
   </object>
-  <object class="GtkTreeStore" id="filelist_treestore">
+  <object class="GtkListStore" id="filelist_liststore">
     <columns>
-      <!-- column-name Name -->
+      <!-- column-name Title -->
       <column type="gchararray"/>
-      <!-- column-name Author -->
+      <!-- column-name Artist -->
       <column type="gchararray"/>
       <!-- column-name Album -->
       <column type="gchararray"/>
@@ -24,10 +24,10 @@
     <property name="can_focus">False</property>
     <property name="stock">gtk-media-next</property>
   </object>
-  <object class="GtkImage" id="pause_image">
+  <object class="GtkImage" id="play_image">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="stock">gtk-media-pause</property>
+    <property name="stock">gtk-media-play</property>
   </object>
   <object class="GtkImage" id="prev_image">
     <property name="visible">True</property>
@@ -41,6 +41,8 @@
   <object class="GtkApplicationWindow" id="top_window">
     <property name="can_focus">False</property>
     <property name="opacity">0.80000000000000004</property>
+    <property name="hide_titlebar_when_maximized">True</property>
+    <property name="icon_name">applications-multimedia</property>
     <signal name="destroy" handler="on_top_destroy" swapped="no"/>
     <child>
       <placeholder/>
@@ -50,6 +52,7 @@
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
+        <property name="spacing">5</property>
         <child>
           <object class="GtkScrolledWindow" id="play_scrolled_window">
             <property name="visible">True</property>
@@ -59,12 +62,12 @@
               <object class="GtkTreeView" id="filelist_treeview">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="model">filelist_treestore</property>
-                <property name="headers_visible">False</property>
+                <property name="model">filelist_liststore</property>
+                <property name="hover_expand">True</property>
+                <property name="enable_grid_lines">horizontal</property>
+                <signal name="row-activated" handler="on_filelist_treeview_row_activated" swapped="no"/>
                 <child internal-child="selection">
-                  <object class="GtkTreeSelection" id="filelist_treeselection">
-                    <signal name="changed" handler="on_filelist_treeselection_changed" swapped="no"/>
-                  </object>
+                  <object class="GtkTreeSelection" id="filelist_treeselection"/>
                 </child>
               </object>
             </child>
@@ -76,28 +79,17 @@
           </packing>
         </child>
         <child>
-          <object class="GtkSeparator">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-          </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">1</property>
-          </packing>
-        </child>
-        <child>
           <object class="GtkScale" id="progress_scale">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="adjustment">adjustment1</property>
             <property name="fill_level">100</property>
-            <property name="round_digits">1</property>
+            <property name="round_digits">0</property>
             <property name="draw_value">False</property>
           </object>
           <packing>
             <property name="expand">False</property>
-            <property name="fill">False</property>
+            <property name="fill">True</property>
             <property name="position">2</property>
           </packing>
         </child>
@@ -105,7 +97,6 @@
           <object class="GtkBox">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="margin_bottom">10</property>
             <child>
               <object class="GtkBox">
                 <property name="visible">True</property>
@@ -114,15 +105,16 @@
                 <property name="spacing">5</property>
                 <child>
                   <object class="GtkImage" id="song_image">
+                    <property name="width_request">90</property>
+                    <property name="height_request">90</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">start</property>
-                    <property name="hexpand">True</property>
                     <property name="stock">gtk-orientation-portrait</property>
                   </object>
                   <packing>
                     <property name="expand">True</property>
-                    <property name="fill">False</property>
+                    <property name="fill">True</property>
                     <property name="position">0</property>
                   </packing>
                 </child>
@@ -130,19 +122,22 @@
                   <object class="GtkLabel" id="song_label">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">Fortia</property>
+                    <property name="halign">start</property>
+                    <property name="wrap">True</property>
+                    <property name="ellipsize">end</property>
+                    <property name="width_chars">30</property>
+                    <property name="max_width_chars">27</property>
                   </object>
                   <packing>
                     <property name="expand">True</property>
-                    <property name="fill">False</property>
+                    <property name="fill">True</property>
                     <property name="position">1</property>
                   </packing>
                 </child>
               </object>
               <packing>
-                <property name="expand">False</property>
+                <property name="expand">True</property>
                 <property name="fill">True</property>
-                <property name="padding">14</property>
                 <property name="position">0</property>
               </packing>
             </child>
@@ -150,7 +145,7 @@
               <object class="GtkButtonBox">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="halign">center</property>
+                <property name="halign">start</property>
                 <property name="margin_top">10</property>
                 <property name="margin_bottom">10</property>
                 <property name="hexpand">True</property>
@@ -176,7 +171,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
-                    <property name="image">pause_image</property>
+                    <property name="image">play_image</property>
                     <signal name="toggled" handler="on_play_pause_toggle_button_toggled" swapped="no"/>
                   </object>
                   <packing>
@@ -211,29 +206,59 @@
               <object class="GtkButtonBox">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="halign">center</property>
+                <property name="halign">end</property>
                 <property name="hexpand">True</property>
                 <property name="layout_style">start</property>
                 <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
+                  <object class="GtkVolumeButton" id="volume_button">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="focus_on_click">False</property>
+                    <property name="receives_default">True</property>
+                    <property name="relief">none</property>
+                    <property name="orientation">vertical</property>
+                    <property name="size">button</property>
+                    <property name="icons">audio-volume-muted-symbolic
+audio-volume-high-symbolic
+audio-volume-low-symbolic
+audio-volume-medium-symbolic</property>
+                    <signal name="value-changed" handler="on_volume_button_value_changed" swapped="no"/>
+                    <child internal-child="plus_button">
+                      <object class="GtkButton">
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">True</property>
+                        <property name="halign">center</property>
+                        <property name="valign">center</property>
+                        <property name="relief">none</property>
+                      </object>
+                    </child>
+                    <child internal-child="minus_button">
+                      <object class="GtkButton">
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">True</property>
+                        <property name="halign">center</property>
+                        <property name="valign">center</property>
+                        <property name="relief">none</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
                 </child>
               </object>
               <packing>
                 <property name="expand">True</property>
-                <property name="fill">False</property>
+                <property name="fill">True</property>
                 <property name="position">2</property>
               </packing>
             </child>
           </object>
           <packing>
             <property name="expand">False</property>
-            <property name="fill">False</property>
+            <property name="fill">True</property>
             <property name="position">3</property>
           </packing>
         </child>
