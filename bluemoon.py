@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import glob
 import time
@@ -45,6 +46,22 @@ class Handler():
     def on_volume_button_value_changed(self, volume, value):
         self.widget.player.set_property('volume', value)
 
+    def on_folder_button_clicked(self, button):
+        dialog = Gtk.FileChooserDialog("Please choose a folder", self.widget.window,
+            Gtk.FileChooserAction.SELECT_FOLDER,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+             "Select", Gtk.ResponseType.OK))
+        dialog.set_default_size(800, 400)
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            self.widget.generate_liststore(dialog.get_filename())
+            self.widget.populate_treeview()
+            if self.widget.current_song is not None:
+                self.widget.update_song_state(self.widget.current_song)
+
+        dialog.destroy()
+
 class Player():
     def __init__(self):
         try:
@@ -64,13 +81,13 @@ class Player():
             self.song_image = builder.get_object("song_image")
             self.song_label = builder.get_object("song_label")
 
-            self.filelist_store = builder.get_object("filelist_liststore")
             self.filelist_tree = builder.get_object("filelist_treeview")
             self.filelist_select = builder.get_object("filelist_treeselection")
             self.slider = builder.get_object("progress_scale")
             self.volume = builder.get_object("volume_button")
             self.slider_handler_id = self.slider.connect("value-changed", self.on_slider_seek)
 
+            self.playlist = []
             self.generate_liststore("/home/blacksky/Music")
             self.populate_treeview()
             self.setup_player()
@@ -96,20 +113,20 @@ class Player():
             self.filelist_tree.append_column(col)
 
     def generate_liststore(self, folder):
-        self.playlist = self.create_playlist(folder)
+        self.create_playlist(folder)
 
+        filelist_store = Gtk.ListStore(str, str, str, str)
         for i in range(len(self.playlist)):
-            self.filelist_store.append(self.playlist[i][2])
+            filelist_store.append(self.playlist[i][2])
+        self.filelist_tree.set_model(filelist_store)
 
     def create_playlist(self, folder):
-        playlist = []
         songlist = glob.glob(folder + "/*.mp3")
 
-        for i, song in enumerate(songlist):
+        for i, song in enumerate(songlist, len(self.playlist)):
             songinfo= self.parse_mp3_tag(song)
             tmp = [i, song, songinfo]
-            playlist.append(tmp)
-        return playlist
+            self.playlist.append(tmp)
 
     def parse_mp3_tag(self, location):
         tags = mp3(location, easy=True)
@@ -170,7 +187,7 @@ class Player():
         if self.current_song is None:
             self.select_song()
             self.update_song_state(self.current_song)
-            
+
         if self.next_song is not None:
             self.update_song_state(self.next_song)
             self.change_song()
@@ -179,7 +196,7 @@ class Player():
         if self.current_song is None:
             self.select_song()
             self.update_song_state(self.current_song)
-            
+
         if self.prev_song is not None:
             self.update_song_state(self.prev_song)
             self.change_song()
@@ -202,10 +219,9 @@ class Player():
             self.update_song_state(self.current_song)
 
         if not self.inited:
-            self.player.set_property('uri', 'file://' + self.current_song[1])
-            self.set_image(self.parse_coverart())
+            self.change_uri()
             self.inited = True
-            
+
         self.player.set_state(Gst.State.PLAYING)
         self.filelist_tree.set_cursor(self.current_song[0])
         self.is_playing = True
@@ -234,21 +250,14 @@ class Player():
         t = message.type
         if t == Gst.MessageType.EOS:
             self.play_next()
-            #self.stop()
-            pass
-        elif t == Gst.MessageType.ERROR:            
+        elif t == Gst.MessageType.ERROR:
             Gtk.main_quit()
-
-    def on_finish(self, *args):
-        #self.play_next()
-        pass
 
     def setup_player(self):
         factory = Gst.Pipeline().get_factory()
         self.player = factory.make('playbin')
         self.player.set_property('volume', 1.0)
         self.volume.set_value(1.0)
-        self.player.connect("about-to-finish", self.on_finish)
         self.bus = self.player.get_bus()
         self.bus.add_signal_watch()
         self.bus.connect('message', self.on_message)
