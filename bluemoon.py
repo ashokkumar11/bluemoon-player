@@ -12,8 +12,8 @@ from gi.repository import GdkPixbuf, GdkX11, GLib
 Gst.init(None)
 Gst.init_check(None)
 
-settings = Gtk.Settings.get_default()
-settings.set_property("gtk-theme-name", "Arc-Dark")
+# settings = Gtk.Settings.get_default()
+# settings.set_property("gtk-theme-name", "Arc-Dark")
 
 class Handler():
     def __init__(self, widget):
@@ -136,6 +136,8 @@ class Player():
         for tag in ['title', 'artist', 'album']:
             if tag in tags.keys():
                 info.append(tags[tag][0])
+            else:
+                info.append("UNKNOWN")
         info.append(duration)
         return info
 
@@ -145,7 +147,7 @@ class Player():
         else:
             success, duration = self.player.query_duration(Gst.Format.TIME)
             if duration == 0:
-                self.mult = 1
+                self.mult = 0.1
             else:
                 self.mult = 100 / (duration / Gst.SECOND)
             success, position = self.player.query_position(Gst.Format.TIME)
@@ -162,17 +164,20 @@ class Player():
             self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, seek_time * Gst.SECOND / self.mult)
 
     def parse_coverart(self):
+        image = None
         tags = mp3(self.current_song[1])
         for key in tags.keys():
             if key.startswith('APIC:'):
                 image = tags[key].data
         return image
 
-    def set_image(self, image):
+    def create_pixbuf_from_image(self, image):
         loader = GdkPixbuf.PixbufLoader()
         loader.write(image)
         loader.close()
-        pixbuf = loader.get_pixbuf()
+        return loader.get_pixbuf()
+    
+    def set_image(self, pixbuf):        
         pixbuf = pixbuf.scale_simple(90, 90, GdkPixbuf.InterpType.BILINEAR)
         self.song_image.set_from_pixbuf(pixbuf)
         self.song_label.set_text(self.current_song[2][0])
@@ -238,7 +243,12 @@ class Player():
 
     def change_uri(self):
         self.player.set_property('uri', 'file://' + self.current_song[1])
-        self.set_image(self.parse_coverart())
+        image = self.parse_coverart()
+        if image is not None:            
+            self.set_image(self.create_pixbuf_from_image(image))
+        else:
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file('unknown-image.png')
+            self.set_image(pixbuf)
 
     def change_song(self):
         self.stop()
