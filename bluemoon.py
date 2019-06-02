@@ -13,7 +13,7 @@ Gst.init(None)
 Gst.init_check(None)
 
 # settings = Gtk.Settings.get_default()
-# settings.set_property("gtk-theme-name", "Arc-Dark")
+# settings.set_property("gtk-theme-name", "Android-master")
 
 class Handler():
     def __init__(self, widget):
@@ -62,6 +62,9 @@ class Handler():
 
         dialog.destroy()
 
+    def on_song_image_button_press_event(self):
+        print('hello')
+
 class Player():
     def __init__(self):
         try:
@@ -85,7 +88,8 @@ class Player():
             self.filelist_select = builder.get_object("filelist_treeselection")
             self.slider = builder.get_object("progress_scale")
             self.volume = builder.get_object("volume_button")
-            self.slider_handler_id = self.slider.connect("value-changed", self.on_slider_seek)
+            self.slider_handler_id = self.slider.connect("button-release-event", self.on_slider_seek)
+            self.slider_handler_id = self.slider.connect("button-press-event", self.on_slider_press)
 
             self.playlist = []
             self.generate_liststore("/home/blacksky/Music")
@@ -96,6 +100,7 @@ class Player():
             self.next_song = None
             self.is_playing = False
             self.inited = False
+            self.skip = False
         except KeyError:
             print("Not Found")
 
@@ -145,23 +150,31 @@ class Player():
         if not self.is_playing:
             return False
         else:
-            success, duration = self.player.query_duration(Gst.Format.TIME)
-            if duration == 0:
-                self.mult = 0.1
-            else:
-                self.mult = 100 / (duration / Gst.SECOND)
-            success, position = self.player.query_position(Gst.Format.TIME)
-            self.slider.handler_block(self.slider_handler_id)
-            self.slider.set_value(float(position) / Gst.SECOND * self.mult)
-            self.slider.handler_unblock(self.slider_handler_id)
+            if self.skip is False:
+                success, duration = self.player.query_duration(Gst.Format.TIME)
+                if duration == 0:
+                    self.mult = 0.1
+                else:
+                    self.mult = 100 / (duration / Gst.SECOND)
+                    success, position = self.player.query_position(Gst.Format.TIME)
+                    self.slider.handler_block(self.slider_handler_id)
+                    self.slider.set_value(float(position) / Gst.SECOND * self.mult)
+                    self.slider.handler_unblock(self.slider_handler_id)
             return True
 
-    def on_slider_seek(self, scale):
+    def on_slider_press(self, widget, scale):
+        if not self.is_playing:
+            return
+        else:
+            self.skip = True
+
+    def on_slider_seek(self, widget, scale):
         if not self.is_playing:
             return
         else:
             seek_time = self.slider.get_value()
             self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, seek_time * Gst.SECOND / self.mult)
+            self.skip = False
 
     def parse_coverart(self):
         image = None
@@ -230,7 +243,7 @@ class Player():
         self.player.set_state(Gst.State.PLAYING)
         self.filelist_tree.set_cursor(self.current_song[0])
         self.is_playing = True
-        GLib.timeout_add(100, self.update_slider)
+        self.timer = GLib.timeout_add(100, self.update_slider)
 
     def stop(self):
         self.is_playing = False
