@@ -90,6 +90,8 @@ class Player():
             self.volume = builder.get_object("volume_button")
             self.slider_handler_id = self.slider.connect("button-release-event", self.on_slider_seek)
             self.slider_handler_id = self.slider.connect("button-press-event", self.on_slider_press)
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file('unknown-image.png')
+            self.set_image(pixbuf, "")
 
             self.playlist = []
             self.generate_liststore("/home/blacksky/Music")
@@ -189,11 +191,11 @@ class Player():
         loader.write(image)
         loader.close()
         return loader.get_pixbuf()
-    
-    def set_image(self, pixbuf):        
+
+    def set_image(self, pixbuf, text):
         pixbuf = pixbuf.scale_simple(90, 90, GdkPixbuf.InterpType.BILINEAR)
         self.song_image.set_from_pixbuf(pixbuf)
-        self.song_label.set_text(self.current_song[2][0])
+        self.song_label.set_text(text)
 
     def select_song(self):
         (model, iter) = self.filelist_select.get_selected()
@@ -257,11 +259,11 @@ class Player():
     def change_uri(self):
         self.player.set_property('uri', 'file://' + self.current_song[1])
         image = self.parse_coverart()
-        if image is not None:            
-            self.set_image(self.create_pixbuf_from_image(image))
+        if image is not None:
+            self.set_image(self.create_pixbuf_from_image(image), self.current_song[2][0])
         else:
             pixbuf = GdkPixbuf.Pixbuf.new_from_file('unknown-image.png')
-            self.set_image(pixbuf)
+            self.set_image(pixbuf, self.current_song[2][0])
 
     def change_song(self):
         self.stop()
