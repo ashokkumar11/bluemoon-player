@@ -7,7 +7,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gst', '1.0')
 
 from mutagen import File as mp3
-from gi.repository import Gtk, Gst
+from gi.repository import Gtk, Gst, Gdk
 from gi.repository import GdkPixbuf, GdkX11, GLib
 Gst.init(None)
 Gst.init_check(None)
@@ -38,11 +38,6 @@ class Handler():
             button.set_property("image", img)
             self.widget.pause()
 
-    def on_filelist_treeview_row_activated(self, widget, row, col):
-        self.widget.select_song()
-        self.widget.update_song_state(self.widget.current_song)
-        self.widget.change_song()
-
     def on_volume_button_value_changed(self, volume, value):
         self.widget.player.set_property('volume', value)
 
@@ -55,7 +50,7 @@ class Handler():
 
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
-            self.widget.generate_liststore(dialog.get_filename())
+            self.widget.create_playlist(dialog.get_filename())
             self.widget.populate_treeview()
             if self.widget.current_song is not None:
                 self.widget.update_song_state(self.widget.current_song)
@@ -84,8 +79,9 @@ class Player():
             self.song_image = builder.get_object("song_image")
             self.song_label = builder.get_object("song_label")
 
-            self.filelist_tree = builder.get_object("filelist_treeview")
-            self.filelist_select = builder.get_object("filelist_treeselection")
+            self.playlist_view = builder.get_object("playlist_view")
+            self.playlist_view.set_max_children_per_line(4)
+            self.playlist_view.set_min_children_per_line(4)
             self.slider = builder.get_object("progress_scale")
             self.volume = builder.get_object("volume_button")
             self.slider_handler_id = self.slider.connect("button-release-event", self.on_slider_seek)
@@ -94,7 +90,7 @@ class Player():
             self.set_image(pixbuf, "")
 
             self.playlist = []
-            self.generate_liststore("/home/blacksky/Music")
+            self.create_playlist("/home/blacksky/Music")
             self.populate_treeview()
             self.setup_player()
             self.current_song = None
@@ -107,32 +103,50 @@ class Player():
             print("Not Found")
 
     def populate_treeview(self):
-        columns = ["Title",
-                   "Artist",
-                   "Album",
-                   "Duration"]
-        for i, column in enumerate(columns):
-            cell = Gtk.CellRendererText()
-            col = Gtk.TreeViewColumn(column, cell, text=i)
-            col.set_sizing(Gtk.TreeViewColumnSizing.AUTOSIZE)
-            col.set_resizable(True)
-            col.set_expand(True)
-            self.filelist_tree.append_column(col)
+        for element in self.playlist_view.get_children():
+                self.playlist_view.remove(element)
 
-    def generate_liststore(self, folder):
-        self.create_playlist(folder)
+        for song in self.playlist:
+            eventbox = Gtk.EventBox()
+            eventbox.set_size_request(300, 300)
+            box1 = Gtk.Box.new(Gtk.Orientation.VERTICAL, 0)
+            eventbox.add(box1)
+            image = Gtk.Image()
+            pixbuf = song[3].scale_simple(200, 200, GdkPixbuf.InterpType.BILINEAR)
+            image.set_from_pixbuf(pixbuf)
+            box1.pack_start(image, True, True, padding=1)
+            image.show()
+            label = Gtk.Label()
+            label.set_text(song[2][0])
+            box1.pack_start(label, True, True, padding=1)
+            eventbox.connect('button-press-event', self.on_button_press, song)
+            self.playlist_view.add(eventbox)
 
-        filelist_store = Gtk.ListStore(str, str, str, str)
-        for i in range(len(self.playlist)):
-            filelist_store.append(self.playlist[i][2])
-        self.filelist_tree.set_model(filelist_store)
+        self.playlist_view.show_all()
+
+    def on_button_press(self, widget, event, song):
+        if event.button == 1:
+            if event.type == Gdk.EventType._2BUTTON_PRESS:
+                self.current_song = song
+                self.update_song_state(self.current_song)
+                self.change_song()
+            if event.type == Gdk.EventType.BUTTON_PRESS:
+                if self.current_song is None:
+                    self.current_song = song
+                    self.update_song_state(self.current_song)
+
 
     def create_playlist(self, folder):
         songlist = glob.glob(folder + "/*.mp3")
 
         for i, song in enumerate(songlist, len(self.playlist)):
             songinfo= self.parse_mp3_tag(song)
-            tmp = [i, song, songinfo]
+            limage = self.parse_coverart(song)
+            if limage is not None:
+                image = self.create_pixbuf_from_image(limage)
+            else:
+                image = GdkPixbuf.Pixbuf.new_from_file('unknown-image.png')
+            tmp = [i, song, songinfo, image]
             self.playlist.append(tmp)
 
     def parse_mp3_tag(self, location):
@@ -178,9 +192,9 @@ class Player():
             self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, seek_time * Gst.SECOND / self.mult)
             self.skip = False
 
-    def parse_coverart(self):
+    def parse_coverart(self, image_url):
         image = None
-        tags = mp3(self.current_song[1])
+        tags = mp3(image_url)
         for key in tags.keys():
             if key.startswith('APIC:'):
                 image = tags[key].data
@@ -197,15 +211,8 @@ class Player():
         self.song_image.set_from_pixbuf(pixbuf)
         self.song_label.set_text(text)
 
-    def select_song(self):
-        (model, iter) = self.filelist_select.get_selected()
-        for i in self.playlist:
-            if model[iter][0] in i[2]:
-                self.current_song = i
-
     def play_next(self):
         if self.current_song is None:
-            self.select_song()
             self.update_song_state(self.current_song)
 
         if self.next_song is not None:
@@ -214,7 +221,6 @@ class Player():
 
     def play_prev(self):
         if self.current_song is None:
-            self.select_song()
             self.update_song_state(self.current_song)
 
         if self.prev_song is not None:
@@ -243,7 +249,8 @@ class Player():
             self.inited = True
 
         self.player.set_state(Gst.State.PLAYING)
-        self.filelist_tree.set_cursor(self.current_song[0])
+        playlist_view_child = self.playlist_view.get_child_at_index(self.current_song[0])
+        self.playlist_view.select_child(playlist_view_child)
         self.is_playing = True
         self.timer = GLib.timeout_add(100, self.update_slider)
 
@@ -258,7 +265,7 @@ class Player():
 
     def change_uri(self):
         self.player.set_property('uri', 'file://' + self.current_song[1])
-        image = self.parse_coverart()
+        image = self.parse_coverart(self.current_song[1])
         if image is not None:
             self.set_image(self.create_pixbuf_from_image(image), self.current_song[2][0])
         else:

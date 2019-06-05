@@ -52,14 +52,15 @@
             <property name="can_focus">True</property>
             <property name="shadow_type">in</property>
             <child>
-              <object class="GtkTreeView" id="filelist_treeview">
+              <object class="GtkViewport">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="hover_expand">True</property>
-                <property name="enable_grid_lines">horizontal</property>
-                <signal name="row-activated" handler="on_filelist_treeview_row_activated" swapped="no"/>
-                <child internal-child="selection">
-                  <object class="GtkTreeSelection" id="filelist_treeselection"/>
+                <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkFlowBox" id="playlist_view">
+                    <property name="name">playlist_view</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
                 </child>
               </object>
             </child>
